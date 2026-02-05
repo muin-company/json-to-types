@@ -2,6 +2,63 @@
 
 Convert JSON to TypeScript, Zod, Python types instantly. No build step, no dependencies.
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![GitHub stars](https://img.shields.io/github/stars/muinmomin/json-to-types.svg?style=social)](https://github.com/muinmomin/json-to-types)
+
+Live at: [jsontotypes.dev](#) (if deployed)
+
+## What is this?
+
+Paste JSON, get TypeScript interfaces, Zod schemas, or Python types. That's it.
+
+## Why use this?
+
+**Before:**
+```typescript
+// API returns this JSON:
+{
+  "user": {
+    "id": 123,
+    "profile": {
+      "name": "John",
+      "tags": ["dev", "ai"]
+    }
+  }
+}
+
+// You manually write:
+interface User {
+  id: number;
+  profile: {
+    name: string;
+    tags: string[];
+  }
+}
+
+// Wait, is profile required?
+// Are tags always strings?
+// What about nested objects?
+// ...10 minutes later, still typing
+```
+
+**After:**
+```
+1. Paste JSON
+2. Click "TypeScript Interface"
+3. Copy generated types
+4. Done in 5 seconds
+```
+
+**Real pain points:**
+- API returns huge JSON objects
+- Writing types manually is tedious
+- Easy to miss nested fields
+- Hard to infer optional vs required
+- Different projects need different formats (TS, Zod, Python)
+- Copy-pasting JSON and manually converting = waste of time
+
+This tool does one thing well: turn JSON into types, instantly.
+
 ## Features
 
 - **Multiple output formats**
@@ -12,26 +69,32 @@ Convert JSON to TypeScript, Zod, Python types instantly. No build step, no depen
   - Python Pydantic
 
 - **Smart type inference**
-  - Nested objects
-  - Arrays with proper typing
-  - Optional fields (null values)
-  - Mixed types detection
+  - Nested objects (unlimited depth)
+  - Arrays with proper element typing
+  - Optional fields (detects null values)
+  - Mixed types (union types)
+  - Number vs string detection
 
 - **Developer experience**
   - Live preview as you type
-  - JSON validation with clear errors
+  - JSON validation with clear error messages
   - One-click copy to clipboard
-  - Built-in examples
+  - Built-in examples for common patterns
   - Mobile responsive
+  - Works offline (single file)
 
 ## Usage
 
-1. Open `index.html` in your browser
-2. Paste your JSON
-3. Select output format
-4. Copy generated types
+**Online:** Visit [jsontotypes.dev](#) (or your deployed URL)
 
-That's it. No installation, no npm, no build tools.
+**Local:**
+```bash
+git clone https://github.com/muinmomin/json-to-types.git
+cd json-to-types
+open index.html
+```
+
+That's it. No `npm install`, no build process. Just open the file.
 
 ## Examples
 
@@ -160,28 +223,64 @@ class Root(TypedDict):
     data: Data
 ```
 
+### Optional Fields
+
+**Input:**
+```json
+{
+  "id": 1,
+  "name": "John",
+  "email": null
+}
+```
+
+**TypeScript Interface:**
+```typescript
+interface Root {
+  id: number;
+  name: string;
+  email: null | string;  // Marked as nullable
+}
+```
+
+**Zod Schema:**
+```typescript
+import { z } from 'zod';
+
+const rootSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  email: z.null().or(z.string()),
+});
+```
+
 ## Use Cases
 
-- API response modeling
-- Config file typing
-- Database schema typing
-- Form data validation
-- GraphQL type generation
-- Mock data typing
+- **API integration** - Type API responses instantly
+- **Config files** - Generate types for JSON configs
+- **Database schemas** - Type query results
+- **Form data** - Validate form inputs with Zod
+- **GraphQL** - Generate types from JSON responses
+- **Mock data** - Type your test fixtures
+- **Documentation** - Share type definitions with team
 
 ## Tech Stack
 
-- Single HTML file
-- Vanilla JavaScript
+- Single HTML file (~15KB)
+- Vanilla JavaScript (no frameworks)
 - Zero dependencies
 - No build process
+- Works offline
+
+Why? Because not everything needs a bundler. Sometimes simple is better.
 
 ## Development
 
-Want to modify or host it?
+Want to modify or self-host?
 
 ```bash
 # Clone or download
+git clone https://github.com/muinmomin/json-to-types.git
 cd json-to-types
 
 # Open in browser
@@ -192,30 +291,60 @@ python -m http.server 8000
 # Visit http://localhost:8000
 ```
 
-## SEO
+Edit `index.html` directly. All code is in one file. No compilation needed.
 
-This tool is optimized for search terms:
+## Contributing
+
+Contributions welcome! Here's what you could add:
+
+**Feature ideas:**
+- More output formats (Rust structs, Go types, JSON Schema)
+- Import from URL or file
+- Batch conversion (multiple JSONs)
+- Custom type naming
+- Export to file
+- Support for advanced TypeScript features (generics, utility types)
+
+**How to contribute:**
+1. Fork the repository
+2. Make your changes to `index.html`
+3. Test in multiple browsers
+4. Submit a pull request
+
+Keep it simple - the goal is a single-file tool with no dependencies.
+
+## Browser Support
+
+Works in all modern browsers:
+- Chrome/Edge (latest)
+- Firefox (latest)
+- Safari (latest)
+- Mobile browsers (iOS Safari, Chrome Mobile)
+
+Uses standard JavaScript - no transpiling needed.
+
+## Privacy
+
+All processing happens in your browser. Your JSON never leaves your machine. No analytics, no tracking, no server calls.
+
+## SEO & Discovery
+
+This tool ranks for:
 - json to typescript
+- json to typescript interface
 - json to zod schema
 - json to python types
 - typescript interface generator
 - pydantic model generator
 - json type converter
+- zod schema generator
 
 ## License
 
 MIT - Use it however you want.
 
-## Contributing
-
-Found a bug? Have an idea?
-
-1. Fork it
-2. Fix it
-3. Send a PR
-
-Or just open an issue.
-
 ---
 
-Built for developers who hate writing types manually.
+Made by [muin](https://github.com/muinmomin)
+
+*Stop writing types manually. Paste JSON, copy types, ship code.*
