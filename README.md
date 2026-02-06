@@ -74,6 +74,8 @@ This tool does one thing well: turn JSON into types, instantly.
   - Optional fields (detects null values)
   - Mixed types (union types)
   - Number vs string detection
+  - **NEW:** Enum detection (repeated string values → union types)
+  - **NEW:** Date detection (ISO 8601 strings → Date type)
 
 - **Developer experience**
   - Live preview as you type
@@ -454,6 +456,87 @@ class GitHubRepo(TypedDict):
 # Use in your scraper:
 repos: list[GitHubRepo] = fetch_repos()
 ```
+
+---
+
+### Example 7: Smart Enum & Date Detection (NEW!)
+
+**Scenario:** The tool automatically detects repeated string values (enums) and ISO date strings.
+
+**Input:**
+```json
+{
+  "user": {
+    "id": 123,
+    "name": "John",
+    "createdAt": "2025-02-06T10:30:00Z",
+    "updatedAt": "2025-02-06T14:30:00.123Z"
+  },
+  "statuses": ["active", "pending", "active", "completed", "active", "pending"],
+  "priority": ["high", "low", "medium", "high", "low"]
+}
+```
+
+**TypeScript Interface (with smart detection):**
+```typescript
+interface Root {
+  user: User;
+  statuses: ('active' | 'pending' | 'completed')[]; // Auto-detected enum!
+  priority: ('high' | 'low' | 'medium')[];          // Auto-detected enum!
+}
+
+interface User {
+  id: number;
+  name: string;
+  createdAt: Date; // ISO 8601 string
+  updatedAt: Date; // ISO 8601 string
+}
+```
+
+**Zod Schema (with validation):**
+```typescript
+import { z } from 'zod';
+
+const userSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  createdAt: z.string().datetime(),  // ISO 8601 validation
+  updatedAt: z.string().datetime(),
+});
+
+const rootSchema = z.object({
+  user: userSchema,
+  statuses: z.array(z.enum(['active', 'pending', 'completed'])), // Enum validation!
+  priority: z.array(z.enum(['high', 'low', 'medium'])),
+});
+
+type Root = z.infer<typeof rootSchema>;
+```
+
+**Python Pydantic:**
+```python
+from pydantic import BaseModel
+from typing import List, Literal
+from datetime import datetime
+
+class User(BaseModel):
+    id: int
+    name: str
+    createdAt: datetime  # Auto-parsed from ISO string
+    updatedAt: datetime
+
+class Root(BaseModel):
+    user: User
+    statuses: List[Literal['active', 'pending', 'completed']]  # Type-safe enum!
+    priority: List[Literal['high', 'low', 'medium']]
+```
+
+**How it works:**
+- **Enum detection:** If an array has repeated string values from a small set (≤10 unique values), it's treated as an enum
+- **Date detection:** Strings matching ISO 8601 format (`YYYY-MM-DDTHH:mm:ss.sssZ`) are typed as `Date`/`datetime`
+- **Benefits:** More precise types, better validation, catches errors at compile time
+
+---
 
 ## Use Cases
 

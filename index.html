@@ -514,15 +514,42 @@ Example:
             }
         }
 
-        function inferType(value) {
+        function isISODate(str) {
+            if (typeof str !== 'string') return false;
+            // Match ISO 8601 date formats
+            const isoDatePattern = /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d{3})?(Z|[+-]\d{2}:\d{2})?)?$/;
+            if (!isoDatePattern.test(str)) return false;
+            const date = new Date(str);
+            return date instanceof Date && !isNaN(date.getTime());
+        }
+
+        function inferType(value, context = {}) {
             if (value === null) return 'null';
+            
             if (Array.isArray(value)) {
                 if (value.length === 0) return 'unknown[]';
+                
+                // Check for enum pattern (repeated string values)
+                if (value.every(v => typeof v === 'string')) {
+                    const uniqueValues = [...new Set(value)];
+                    // If we have few unique values and they repeat, it's likely an enum
+                    if (uniqueValues.length <= 10 && uniqueValues.length < value.length) {
+                        return `enum:${uniqueValues.join('|')}`;
+                    }
+                }
+                
                 const firstType = inferType(value[0]);
                 const allSame = value.every(v => inferType(v) === firstType);
                 return allSame ? `${firstType}[]` : 'unknown[]';
             }
+            
             if (typeof value === 'object') return 'object';
+            
+            // Date detection for strings
+            if (typeof value === 'string' && isISODate(value)) {
+                return 'Date';
+            }
+            
             return typeof value;
         }
 
@@ -550,6 +577,12 @@ Example:
                 } else if (type.endsWith('[]') && typeof value[0] === 'object') {
                     const nestedName = capitalize(key.replace(/s$/, ''));
                     result += `${ind2}${key}: ${nestedName}[];\n`;
+                } else if (type.startsWith('enum:')) {
+                    // Extract enum values
+                    const values = type.slice(5).split('|');
+                    result += `${ind2}${key}: ${values.map(v => `'${v}'`).join(' | ')}[];\n`;
+                } else if (type === 'Date') {
+                    result += `${ind2}${key}: Date; // ISO 8601 string\n`;
                 } else {
                     result += `${ind2}${key}: ${type};\n`;
                 }
@@ -593,6 +626,12 @@ Example:
                 } else if (type.endsWith('[]') && typeof value[0] === 'object') {
                     const nestedName = capitalize(key.replace(/s$/, ''));
                     result += `${ind2}${key}: ${nestedName}[];\n`;
+                } else if (type.startsWith('enum:')) {
+                    // Extract enum values
+                    const values = type.slice(5).split('|');
+                    result += `${ind2}${key}: ${values.map(v => `'${v}'`).join(' | ')}[];\n`;
+                } else if (type === 'Date') {
+                    result += `${ind2}${key}: Date; // ISO 8601 string\n`;
                 } else {
                     result += `${ind2}${key}: ${type};\n`;
                 }
@@ -666,6 +705,15 @@ Example:
             if (value === null) return 'z.null()';
             if (Array.isArray(value)) {
                 if (value.length === 0) return 'z.array(z.unknown())';
+                
+                // Check for enum pattern
+                if (value.every(v => typeof v === 'string')) {
+                    const uniqueValues = [...new Set(value)];
+                    if (uniqueValues.length <= 10 && uniqueValues.length < value.length) {
+                        return `z.array(z.enum([${uniqueValues.map(v => `'${v}'`).join(', ')}]))`;
+                    }
+                }
+                
                 if (typeof value[0] === 'object') {
                     const nestedName = capitalize(key.replace(/s$/, ''));
                     return `z.array(${lowerFirst(nestedName)}Schema)`;
@@ -674,6 +722,10 @@ Example:
             }
             if (typeof value === 'object') {
                 return `${lowerFirst(capitalize(key))}Schema`;
+            }
+            // Check for ISO date strings
+            if (typeof value === 'string' && isISODate(value)) {
+                return 'z.string().datetime()';
             }
             if (typeof value === 'string') return 'z.string()';
             if (typeof value === 'number') return 'z.number()';
@@ -694,7 +746,7 @@ Example:
                 return `${name} = ${generatePyType(data, '')}\n`;
             }
 
-            let result = `from typing import TypedDict, List, Optional\n\n`;
+            let result = `from typing import TypedDict, List, Optional, Literal\nfrom datetime import datetime\n\n`;
             
             // Generate nested TypedDicts first
             for (const [key, value] of Object.entries(data)) {
@@ -730,6 +782,15 @@ Example:
             if (value === null) return 'None';
             if (Array.isArray(value)) {
                 if (value.length === 0) return 'List[Any]';
+                
+                // Check for enum pattern
+                if (value.every(v => typeof v === 'string')) {
+                    const uniqueValues = [...new Set(value)];
+                    if (uniqueValues.length <= 10 && uniqueValues.length < value.length) {
+                        return `List[Literal[${uniqueValues.map(v => `'${v}'`).join(', ')}]]`;
+                    }
+                }
+                
                 if (typeof value[0] === 'object') {
                     return `List[${capitalize(key.replace(/s$/, ''))}]`;
                 }
@@ -737,6 +798,10 @@ Example:
             }
             if (typeof value === 'object') {
                 return capitalize(key);
+            }
+            // Check for ISO date strings
+            if (typeof value === 'string' && isISODate(value)) {
+                return 'datetime';
             }
             if (typeof value === 'string') return 'str';
             if (typeof value === 'number') {
@@ -757,7 +822,7 @@ Example:
                 return `${name} = ${generatePyType(data, '')}\n`;
             }
 
-            let result = `from pydantic import BaseModel\nfrom typing import List, Optional\n\n`;
+            let result = `from pydantic import BaseModel\nfrom typing import List, Optional, Literal\nfrom datetime import datetime\n\n`;
             
             // Generate nested models first
             for (const [key, value] of Object.entries(data)) {
