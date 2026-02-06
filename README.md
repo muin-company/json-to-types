@@ -98,7 +98,9 @@ That's it. No `npm install`, no build process. Just open the file.
 
 ## Examples
 
-### Basic Object
+### Example 1: Basic API Response Typing
+
+**Scenario:** You get a response from `/api/user` and need types fast.
 
 **Input:**
 ```json
@@ -118,7 +120,7 @@ interface Root {
 }
 ```
 
-**Zod Schema:**
+**Zod Schema (with validation):**
 ```typescript
 import { z } from 'zod';
 
@@ -129,20 +131,16 @@ const rootSchema = z.object({
 });
 
 type Root = z.infer<typeof rootSchema>;
+
+// Use for runtime validation:
+const user = rootSchema.parse(apiResponse);
 ```
 
-**Python Pydantic:**
-```python
-from pydantic import BaseModel
-from typing import List
+---
 
-class Root(BaseModel):
-    name: str
-    age: int
-    tags: List[str]
-```
+### Example 2: Complex Nested E-commerce API
 
-### Nested Objects
+**Scenario:** Product catalog API with deep nesting, multiple arrays, mixed types.
 
 **Input:**
 ```json
@@ -151,15 +149,23 @@ class Root(BaseModel):
     "id": 123,
     "profile": {
       "bio": "Developer",
-      "avatar": "url"
+      "avatar": "https://example.com/avatar.jpg",
+      "verified": true
     }
   },
-  "posts": [
-    {
-      "id": 1,
-      "title": "Hello"
-    }
-  ]
+  "cart": {
+    "items": [
+      {
+        "productId": 456,
+        "name": "Laptop",
+        "price": 1299.99,
+        "quantity": 1,
+        "variants": ["16GB RAM", "512GB SSD"]
+      }
+    ],
+    "totalPrice": 1299.99,
+    "coupon": null
+  }
 }
 ```
 
@@ -167,7 +173,7 @@ class Root(BaseModel):
 ```typescript
 interface Root {
   user: User;
-  posts: Post[];
+  cart: Cart;
 }
 
 interface User {
@@ -178,15 +184,60 @@ interface User {
 interface Profile {
   bio: string;
   avatar: string;
+  verified: boolean;
 }
 
-interface Post {
-  id: number;
-  title: string;
+interface Cart {
+  items: Item[];
+  totalPrice: number;
+  coupon: null | string;  // Optional coupon code
+}
+
+interface Item {
+  productId: number;
+  name: string;
+  price: number;
+  quantity: number;
+  variants: string[];
 }
 ```
 
-### API Response
+**Python Pydantic (for FastAPI backend):**
+```python
+from pydantic import BaseModel
+from typing import List, Optional
+
+class Profile(BaseModel):
+    bio: str
+    avatar: str
+    verified: bool
+
+class User(BaseModel):
+    id: int
+    profile: Profile
+
+class Item(BaseModel):
+    productId: int
+    name: str
+    price: float
+    quantity: int
+    variants: List[str]
+
+class Cart(BaseModel):
+    items: List[Item]
+    totalPrice: float
+    coupon: Optional[str] = None
+
+class Root(BaseModel):
+    user: User
+    cart: Cart
+```
+
+---
+
+### Example 3: Paginated API Response
+
+**Scenario:** Standard REST pagination pattern. Your backend returns this, you need frontend types.
 
 **Input:**
 ```json
@@ -196,62 +247,212 @@ interface Post {
     "items": [
       {
         "id": 1,
-        "name": "Item 1",
-        "price": 29.99
+        "title": "Hello World",
+        "createdAt": "2025-02-06T14:00:00Z"
       }
     ],
-    "total": 100
-  }
+    "pagination": {
+      "page": 1,
+      "perPage": 20,
+      "total": 100,
+      "hasNext": true
+    }
+  },
+  "error": null
 }
 ```
 
-**Python TypedDict:**
-```python
-from typing import TypedDict, List
+**TypeScript Interface:**
+```typescript
+interface ApiResponse {
+  success: boolean;
+  data: Data;
+  error: null | string;
+}
 
-class Item(TypedDict):
-    id: int
-    name: str
-    price: float
+interface Data {
+  items: Item[];
+  pagination: Pagination;
+}
 
-class Data(TypedDict):
-    items: List[Item]
-    total: int
+interface Item {
+  id: number;
+  title: string;
+  createdAt: string;  // ISO date string
+}
 
-class Root(TypedDict):
-    success: bool
-    data: Data
+interface Pagination {
+  page: number;
+  perPage: number;
+  total: number;
+  hasNext: boolean;
+}
 ```
 
-### Optional Fields
+---
+
+### Example 4: Union Types & Mixed Arrays
+
+**Scenario:** Handling different event types in an activity feed.
+
+**Input:**
+```json
+{
+  "events": [
+    {
+      "type": "comment",
+      "userId": 123,
+      "text": "Great post!"
+    },
+    {
+      "type": "like",
+      "userId": 456,
+      "count": 5
+    },
+    {
+      "type": "share",
+      "userId": 789,
+      "platform": "twitter"
+    }
+  ]
+}
+```
+
+**TypeScript Type (captures mixed array):**
+```typescript
+type Root = {
+  events: Event[];
+}
+
+type Event = {
+  type: string;
+  userId: number;
+  text?: string;      // Only in comments
+  count?: number;     // Only in likes
+  platform?: string;  // Only in shares
+}
+
+// Better: Use discriminated unions
+type CommentEvent = {
+  type: 'comment';
+  userId: number;
+  text: string;
+}
+
+type LikeEvent = {
+  type: 'like';
+  userId: number;
+  count: number;
+}
+
+type ShareEvent = {
+  type: 'share';
+  userId: number;
+  platform: string;
+}
+
+type Event = CommentEvent | LikeEvent | ShareEvent;
+```
+
+---
+
+### Example 5: Edge Case - Empty Arrays & Null Values
+
+**Scenario:** Incomplete API response, need to handle missing/null data.
 
 **Input:**
 ```json
 {
   "id": 1,
   "name": "John",
-  "email": null
+  "email": null,
+  "tags": [],
+  "metadata": {
+    "lastLogin": null,
+    "settings": {}
+  }
 }
 ```
 
-**TypeScript Interface:**
-```typescript
-interface Root {
-  id: number;
-  name: string;
-  email: null | string;  // Marked as nullable
-}
-```
-
-**Zod Schema:**
+**Zod Schema (with proper null handling):**
 ```typescript
 import { z } from 'zod';
 
 const rootSchema = z.object({
   id: z.number(),
   name: z.string(),
-  email: z.null().or(z.string()),
+  email: z.string().nullable(),
+  tags: z.array(z.string()),  // Empty array still typed
+  metadata: z.object({
+    lastLogin: z.string().nullable(),
+    settings: z.record(z.unknown()),  // Empty object
+  }),
 });
+
+type Root = z.infer<typeof rootSchema>;
+
+// Handles edge cases gracefully:
+// ✓ null email doesn't break validation
+// ✓ Empty tags array is valid
+// ✓ Empty settings object works
+```
+
+---
+
+### Example 6: Real-World GitHub API Response
+
+**Scenario:** You're building a GitHub client and need to type their API responses.
+
+**Input (from `/repos/:owner/:repo`):**
+```json
+{
+  "id": 123456789,
+  "name": "my-repo",
+  "full_name": "owner/my-repo",
+  "private": false,
+  "owner": {
+    "login": "owner",
+    "id": 1234,
+    "avatar_url": "https://github.com/avatar.jpg"
+  },
+  "description": "My awesome project",
+  "stargazers_count": 42,
+  "forks_count": 7,
+  "open_issues_count": 3,
+  "license": {
+    "key": "mit",
+    "name": "MIT License"
+  }
+}
+```
+
+**Python TypedDict (for data science / scraping):**
+```python
+from typing import TypedDict, Optional
+
+class Owner(TypedDict):
+    login: str
+    id: int
+    avatar_url: str
+
+class License(TypedDict):
+    key: str
+    name: str
+
+class GitHubRepo(TypedDict):
+    id: int
+    name: str
+    full_name: str
+    private: bool
+    owner: Owner
+    description: Optional[str]
+    stargazers_count: int
+    forks_count: int
+    open_issues_count: int
+    license: License
+
+# Use in your scraper:
+repos: list[GitHubRepo] = fetch_repos()
 ```
 
 ## Use Cases
