@@ -987,6 +987,618 @@ app.post('/webhooks', (req, res) => {
 
 ---
 
+---
+
+## Framework Integration Examples
+
+### React + TypeScript (API Integration)
+
+**Scenario:** Fetch user data from API, need proper typing for components.
+
+```typescript
+// 1. Get JSON response from API
+// https://api.example.com/user/123
+// Copy JSON and paste into json-to-types → TypeScript Interface
+
+// Generated types:
+interface UserResponse {
+  user: User;
+  meta: Meta;
+}
+
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  profile: Profile;
+}
+
+interface Profile {
+  avatar: string;
+  bio: string | null;
+  verified: boolean;
+}
+
+interface Meta {
+  requestId: string;
+  timestamp: string;
+}
+
+// 2. Use in React component with proper typing
+import { useState, useEffect } from 'react';
+
+export function UserProfile({ userId }: { userId: number }) {
+  const [data, setData] = useState<UserResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    fetch(`https://api.example.com/user/${userId}`)
+      .then(res => res.json())
+      .then((data: UserResponse) => {
+        setData(data);
+        setLoading(false);
+      })
+      .catch(setError);
+  }, [userId]);
+
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+  if (!data) return null;
+
+  // TypeScript knows all these properties exist!
+  return (
+    <div>
+      <img src={data.user.profile.avatar} alt={data.user.name} />
+      <h1>{data.user.name}</h1>
+      <p>{data.user.email}</p>
+      {data.user.profile.bio && <p>{data.user.profile.bio}</p>}
+      {data.user.profile.verified && <span>✓ Verified</span>}
+    </div>
+  );
+}
+```
+
+---
+
+### Next.js API Routes with Zod Validation
+
+**Scenario:** Validate incoming request body with type safety.
+
+```typescript
+// 1. Design your API request body
+// Paste example JSON into json-to-types → Zod Schema
+
+import { z } from 'zod';
+import type { NextApiRequest, NextApiResponse } from 'next';
+
+// Generated Zod schema
+const createUserSchema = z.object({
+  name: z.string().min(1),
+  email: z.string().email(),
+  age: z.number().int().positive(),
+  preferences: z.object({
+    newsletter: z.boolean(),
+    notifications: z.enum(['all', 'mentions', 'none']),
+  }),
+});
+
+type CreateUserInput = z.infer<typeof createUserSchema>;
+
+// 2. Use in API route with runtime validation
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
+  // Validate request body
+  const result = createUserSchema.safeParse(req.body);
+  
+  if (!result.success) {
+    return res.status(400).json({
+      error: 'Validation failed',
+      details: result.error.format(),
+    });
+  }
+
+  // result.data is fully typed!
+  const userData: CreateUserInput = result.data;
+  
+  // Create user in database
+  const user = await db.users.create({
+    data: userData,
+  });
+
+  return res.status(201).json({ user });
+}
+```
+
+**Example validation error response:**
+```json
+{
+  "error": "Validation failed",
+  "details": {
+    "email": { "_errors": ["Invalid email"] },
+    "age": { "_errors": ["Expected number, received string"] }
+  }
+}
+```
+
+---
+
+### FastAPI (Python) with Pydantic Models
+
+**Scenario:** Build type-safe REST API with automatic OpenAPI docs.
+
+```python
+# 1. Get sample API response JSON
+# Paste into json-to-types → Python Pydantic
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, EmailStr, Field
+from typing import List, Optional
+from datetime import datetime
+
+# Generated Pydantic models
+class User(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    created_at: datetime
+    profile: Optional["Profile"] = None
+
+class Profile(BaseModel):
+    bio: Optional[str] = None
+    avatar: str
+    verified: bool = False
+    tags: List[str] = []
+
+class UserListResponse(BaseModel):
+    users: List[User]
+    total: int
+    page: int
+
+# Update forward references
+User.update_forward_refs()
+
+# 2. Use in FastAPI routes
+app = FastAPI()
+
+@app.get("/users", response_model=UserListResponse)
+async def list_users(page: int = 1, limit: int = 20):
+    """
+    List users with pagination.
+    FastAPI auto-generates OpenAPI docs from Pydantic models!
+    """
+    users = await db.users.find().skip((page - 1) * limit).limit(limit)
+    total = await db.users.count()
+    
+    return UserListResponse(
+        users=users,
+        total=total,
+        page=page
+    )
+
+@app.post("/users", response_model=User, status_code=201)
+async def create_user(user_data: User):
+    """
+    Create new user.
+    Pydantic automatically validates:
+    - Email format
+    - Required fields
+    - Type constraints
+    """
+    # user_data is validated and typed!
+    user = await db.users.insert_one(user_data.dict())
+    return user
+
+# Auto-generated OpenAPI docs at /docs
+# Auto-generated ReDoc at /redoc
+```
+
+**Interactive API documentation is automatically generated:**
+- Swagger UI at `http://localhost:8000/docs`
+- Request/response schemas shown with examples
+- Try-it-out functionality built-in
+
+---
+
+### Vue 3 Composables with Type Safety
+
+**Scenario:** Create reusable API fetch composable with proper typing.
+
+```typescript
+// 1. Define API response types from JSON
+// Paste API response → json-to-types → TypeScript Interface
+
+// composables/useApi.ts
+import { ref, type Ref } from 'vue';
+
+interface ApiResponse<T> {
+  data: T;
+  meta: {
+    requestId: string;
+    timestamp: string;
+  };
+}
+
+interface Product {
+  id: number;
+  name: string;
+  price: number;
+  inStock: boolean;
+  images: string[];
+  category: Category;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+// 2. Type-safe composable
+export function useProducts() {
+  const products = ref<Product[]>([]);
+  const loading = ref(false);
+  const error = ref<Error | null>(null);
+
+  async function fetchProducts(categoryId?: number) {
+    loading.value = true;
+    error.value = null;
+
+    try {
+      const url = categoryId 
+        ? `/api/products?category=${categoryId}`
+        : '/api/products';
+      
+      const response = await fetch(url);
+      const json: ApiResponse<Product[]> = await response.json();
+      
+      products.value = json.data;
+    } catch (e) {
+      error.value = e as Error;
+    } finally {
+      loading.value = false;
+    }
+  }
+
+  return {
+    products,
+    loading,
+    error,
+    fetchProducts,
+  };
+}
+
+// 3. Use in component with full type safety
+// ProductList.vue
+<script setup lang="ts">
+import { onMounted } from 'vue';
+import { useProducts } from '@/composables/useProducts';
+
+const { products, loading, error, fetchProducts } = useProducts();
+
+onMounted(() => {
+  fetchProducts();
+});
+</script>
+
+<template>
+  <div v-if="loading">Loading products...</div>
+  <div v-else-if="error">Error: {{ error.message }}</div>
+  <div v-else>
+    <ProductCard
+      v-for="product in products"
+      :key="product.id"
+      :product="product"
+    />
+  </div>
+</template>
+```
+
+---
+
+### Express.js + Zod (Runtime Validation Middleware)
+
+**Scenario:** Validate incoming request bodies in Express routes.
+
+```typescript
+// 1. Generate Zod schemas from example request bodies
+// middleware/validation.ts
+
+import { z } from 'zod';
+import type { Request, Response, NextFunction } from 'express';
+
+// Generated from json-to-types
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  remember: z.boolean().optional(),
+});
+
+const updateProfileSchema = z.object({
+  name: z.string().min(1).optional(),
+  bio: z.string().max(500).optional(),
+  avatar: z.string().url().optional(),
+  preferences: z.object({
+    newsletter: z.boolean(),
+    theme: z.enum(['light', 'dark', 'auto']),
+  }).optional(),
+});
+
+// 2. Create validation middleware
+function validate<T extends z.ZodType>(schema: T) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.body);
+    
+    if (!result.success) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: result.error.flatten(),
+      });
+    }
+    
+    // Replace req.body with validated data
+    req.body = result.data;
+    next();
+  };
+}
+
+// 3. Use in routes
+import express from 'express';
+
+const app = express();
+app.use(express.json());
+
+app.post('/api/login', validate(loginSchema), async (req, res) => {
+  // req.body is now typed and validated!
+  const { email, password, remember } = req.body;
+  
+  const user = await authenticateUser(email, password);
+  const token = generateToken(user, remember);
+  
+  res.json({ token, user });
+});
+
+app.patch('/api/profile', 
+  authenticate, 
+  validate(updateProfileSchema), 
+  async (req, res) => {
+    const userId = req.user.id;
+    
+    // Only validated fields are present
+    const updated = await db.users.update(userId, req.body);
+    
+    res.json({ user: updated });
+  }
+);
+```
+
+---
+
+### GraphQL Schema Generation
+
+**Scenario:** Convert GraphQL response JSON to TypeScript types for client.
+
+```typescript
+// 1. Execute GraphQL query, copy response JSON
+// Paste into json-to-types → TypeScript Interface
+
+// graphql/types.ts
+// Generated types
+interface GetUserQueryResponse {
+  user: User;
+}
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  posts: Post[];
+}
+
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  publishedAt: string;
+  author: {
+    id: string;
+    username: string;
+  };
+}
+
+// 2. Use with Apollo Client or urql
+import { useQuery } from '@apollo/client';
+import { gql } from 'graphql-tag';
+
+const GET_USER = gql`
+  query GetUser($id: ID!) {
+    user(id: $id) {
+      id
+      username
+      email
+      posts {
+        id
+        title
+        content
+        publishedAt
+        author {
+          id
+          username
+        }
+      }
+    }
+  }
+`;
+
+function UserProfile({ userId }: { userId: string }) {
+  // Type the query response
+  const { data, loading, error } = useQuery<GetUserQueryResponse>(GET_USER, {
+    variables: { id: userId },
+  });
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+  if (!data) return null;
+
+  // Full type safety!
+  const { user } = data;
+  
+  return (
+    <div>
+      <h1>{user.username}</h1>
+      <p>{user.email}</p>
+      <h2>Posts</h2>
+      {user.posts.map(post => (
+        <article key={post.id}>
+          <h3>{post.title}</h3>
+          <p>{post.content}</p>
+          <time>{new Date(post.publishedAt).toLocaleDateString()}</time>
+        </article>
+      ))}
+    </div>
+  );
+}
+```
+
+---
+
+### Testing with Vitest/Jest (Type-Safe Fixtures)
+
+**Scenario:** Generate types for test fixtures and mock data.
+
+```typescript
+// 1. Create mock API response
+// Paste JSON into json-to-types → TypeScript Interface
+
+// tests/fixtures/users.ts
+interface User {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'user' | 'guest';
+}
+
+export const mockUsers: User[] = [
+  {
+    id: 1,
+    name: 'Alice Admin',
+    email: 'alice@example.com',
+    role: 'admin',
+  },
+  {
+    id: 2,
+    name: 'Bob User',
+    email: 'bob@example.com',
+    role: 'user',
+  },
+];
+
+// 2. Type-safe test setup
+import { describe, it, expect, vi } from 'vitest';
+import { mockUsers } from './fixtures/users';
+import { getUserById } from '../src/api';
+
+describe('User API', () => {
+  it('fetches user by ID', async () => {
+    // Mock fetch with typed response
+    global.fetch = vi.fn().mockResolvedValue({
+      json: async () => mockUsers[0],
+    });
+
+    const user = await getUserById(1);
+    
+    // TypeScript knows the structure!
+    expect(user.name).toBe('Alice Admin');
+    expect(user.role).toBe('admin');
+    expect(user.email).toContain('@example.com');
+  });
+
+  it('handles invalid user ID', async () => {
+    global.fetch = vi.fn().mockRejectedValue(new Error('User not found'));
+
+    await expect(getUserById(999)).rejects.toThrow('User not found');
+  });
+});
+```
+
+---
+
+### Remix Loader + Zod Validation
+
+**Scenario:** Type-safe data loading with validation in Remix routes.
+
+```typescript
+// 1. Generate types from API response
+// app/routes/products.$id.tsx
+
+import { json, type LoaderFunctionArgs } from '@remix-run/node';
+import { useLoaderData } from '@remix-run/react';
+import { z } from 'zod';
+
+// Generated Zod schema
+const productSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  price: z.number().positive(),
+  description: z.string(),
+  images: z.array(z.string().url()),
+  stock: z.number().int().nonnegative(),
+  category: z.object({
+    id: z.string(),
+    name: z.string(),
+  }),
+});
+
+type Product = z.infer<typeof productSchema>;
+
+// 2. Type-safe loader
+export async function loader({ params }: LoaderFunctionArgs) {
+  const productId = params.id;
+  
+  const response = await fetch(`https://api.example.com/products/${productId}`);
+  const data = await response.json();
+  
+  // Validate API response at runtime
+  const product = productSchema.parse(data);
+  
+  return json({ product });
+}
+
+// 3. Use in component with full type safety
+export default function ProductPage() {
+  const { product } = useLoaderData<typeof loader>();
+  
+  // TypeScript knows the exact shape!
+  return (
+    <div>
+      <h1>{product.name}</h1>
+      <p>${product.price.toFixed(2)}</p>
+      <p>{product.description}</p>
+      
+      <div>
+        {product.images.map((url, i) => (
+          <img key={i} src={url} alt={`${product.name} ${i + 1}`} />
+        ))}
+      </div>
+      
+      <p>
+        {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
+      </p>
+      
+      <p>Category: {product.category.name}</p>
+    </div>
+  );
+}
+```
+
+---
+
 ## Use Cases
 
 - **API integration** - Type API responses instantly
@@ -996,6 +1608,10 @@ app.post('/webhooks', (req, res) => {
 - **GraphQL** - Generate types from JSON responses
 - **Mock data** - Type your test fixtures
 - **Documentation** - Share type definitions with team
+- **React/Vue components** - Type props and API responses
+- **Express/FastAPI routes** - Validate request/response bodies
+- **Testing** - Create type-safe mock data
+- **CI/CD** - Generate types from API contracts automatically
 
 ## Tech Stack
 
