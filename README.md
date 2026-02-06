@@ -77,6 +77,12 @@ This tool does one thing well: turn JSON into types, instantly.
   - **NEW:** Enum detection (repeated string values → union types)
   - **NEW:** Date detection (ISO 8601 strings → Date type)
 
+- **Clipboard integration**
+  - One-click paste from clipboard button
+  - Auto-detect JSON in clipboard on page load
+  - Keyboard shortcut: Ctrl/Cmd+Shift+V
+  - Smart notification when JSON is detected
+
 - **Developer experience**
   - Live preview as you type
   - JSON validation with clear error messages
@@ -97,6 +103,16 @@ open index.html
 ```
 
 That's it. No `npm install`, no build process. Just open the file.
+
+### Quick Start with Clipboard
+
+1. **Copy JSON** from anywhere (API response, docs, etc.)
+2. **Open the tool** - It auto-detects JSON in your clipboard!
+3. **Click "Paste from Clipboard"** or press `Ctrl/Cmd+Shift+V`
+4. **Select format** - TypeScript, Zod, Python, etc.
+5. **Copy generated types** - Click the copy button
+
+**Pro tip:** The tool shows a notification if it detects JSON in your clipboard when you load the page.
 
 ## Examples
 

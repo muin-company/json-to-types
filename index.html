@@ -69,6 +69,35 @@
             font-weight: 600;
         }
 
+        .paste-btn {
+            padding: 8px 16px;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .paste-btn:hover {
+            background: #357abd;
+            transform: translateY(-1px);
+        }
+
+        .paste-btn:active {
+            transform: translateY(0);
+        }
+
+        .paste-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
         textarea {
             width: 100%;
             min-height: 400px;
@@ -256,6 +285,7 @@
             <div class="panel">
                 <div class="panel-header">
                     <div class="panel-title">Input JSON</div>
+                    <button id="pasteBtn" class="paste-btn" title="Paste from clipboard">📋 Paste from Clipboard</button>
                 </div>
                 <div id="errorMsg"></div>
                 <textarea id="jsonInput" placeholder='Paste your JSON here...
@@ -391,6 +421,30 @@ Example:
             });
         });
 
+        // Paste from clipboard button
+        document.getElementById('pasteBtn').addEventListener('click', async () => {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text.trim()) {
+                    jsonInput.value = text;
+                    convert();
+                    
+                    // Visual feedback
+                    const btn = document.getElementById('pasteBtn');
+                    const originalText = btn.innerHTML;
+                    btn.innerHTML = '✓ Pasted!';
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                    }, 2000);
+                } else {
+                    alert('Clipboard is empty');
+                }
+            } catch (err) {
+                console.error('Failed to read clipboard:', err);
+                alert('Failed to read clipboard. Please paste manually (Ctrl+V / Cmd+V)');
+            }
+        });
+
         // Copy button
         document.getElementById('copyBtn').addEventListener('click', () => {
             const text = output.textContent;
@@ -439,10 +493,42 @@ Example:
             localStorage.setItem('json-to-types-format', currentFormat);
         });
 
+        // Keyboard shortcut: Ctrl/Cmd+Shift+V to paste from clipboard
+        document.addEventListener('keydown', async (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'V') {
+                e.preventDefault();
+                document.getElementById('pasteBtn').click();
+            }
+        });
+
         // Load from localStorage on page load
-        window.addEventListener('DOMContentLoaded', () => {
+        window.addEventListener('DOMContentLoaded', async () => {
             const savedInput = localStorage.getItem('json-to-types-input');
             const savedFormat = localStorage.getItem('json-to-types-format');
+            
+            // Try to load from clipboard if nothing saved and no URL params
+            if (!savedInput && !window.location.search) {
+                try {
+                    const clipboardText = await navigator.clipboard.readText();
+                    if (clipboardText && clipboardText.trim().startsWith('{') || clipboardText.trim().startsWith('[')) {
+                        // Looks like JSON, try to parse it
+                        try {
+                            JSON.parse(clipboardText);
+                            // Valid JSON! Show a subtle notification
+                            const notification = document.createElement('div');
+                            notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #4a90e2; color: white; padding: 12px 20px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1000;';
+                            notification.textContent = 'JSON detected in clipboard! Click "Paste from Clipboard" to use it.';
+                            document.body.appendChild(notification);
+                            setTimeout(() => notification.remove(), 5000);
+                        } catch {
+                            // Not valid JSON, ignore
+                        }
+                    }
+                } catch (err) {
+                    // Clipboard API not available or permission denied, silently continue
+                    console.log('Clipboard auto-detection not available');
+                }
+            }
             
             if (savedInput && !window.location.search) {
                 jsonInput.value = savedInput;
