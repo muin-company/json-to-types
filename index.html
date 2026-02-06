@@ -276,8 +276,8 @@
                 <button class="format-btn" data-format="py-typed">Python TypedDict</button>
                 <button class="format-btn" data-format="pydantic">Pydantic</button>
             </div>
-            <button class="btn" id="copyBtn">Copy</button>
-            <button class="btn" id="downloadBtn">Download</button>
+            <button class="btn" id="copyBtn" title="Copy output (Ctrl+Shift+C)">Copy</button>
+            <button class="btn" id="downloadBtn" title="Download file (Ctrl+S)">Download</button>
             <button class="btn secondary" id="shareBtn">Share</button>
             <button class="btn secondary" id="clearBtn">Clear</button>
         </div>
@@ -332,6 +332,12 @@ Example:
         <footer>
             <p>Made for developers who hate writing types manually.</p>
             <p>Free, no ads, no tracking. Just paste and copy.</p>
+            <p style="font-size: 12px; color: #999; margin-top: 10px;">
+                💡 Keyboard shortcuts: 
+                <kbd style="padding: 2px 6px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; color: #333;">Ctrl+Enter</kbd> to convert | 
+                <kbd style="padding: 2px 6px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; color: #333;">Ctrl+S</kbd> to download | 
+                <kbd style="padding: 2px 6px; background: #f0f0f0; border: 1px solid #ccc; border-radius: 3px; color: #333;">Ctrl+Shift+C</kbd> to copy
+            </p>
         </footer>
     </div>
 
@@ -549,11 +555,35 @@ Example:
             localStorage.setItem('json-to-types-format', currentFormat);
         });
 
-        // Keyboard shortcut: Ctrl/Cmd+Shift+V to paste from clipboard
+        // Keyboard shortcuts
         document.addEventListener('keydown', async (e) => {
+            // Ctrl/Cmd+Shift+V to paste from clipboard
             if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'V') {
                 e.preventDefault();
                 document.getElementById('pasteBtn').click();
+            }
+            
+            // Ctrl/Cmd+Enter to generate/convert (re-trigger conversion)
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                convert();
+                // Visual feedback
+                jsonInput.style.borderColor = '#3fb950';
+                setTimeout(() => {
+                    jsonInput.style.borderColor = '';
+                }, 300);
+            }
+            
+            // Ctrl/Cmd+S to download
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                document.getElementById('downloadBtn').click();
+            }
+            
+            // Ctrl/Cmd+Shift+C to copy
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'C') {
+                e.preventDefault();
+                document.getElementById('copyBtn').click();
             }
         });
 
