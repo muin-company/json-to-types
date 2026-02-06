@@ -248,6 +248,7 @@
                 <button class="format-btn" data-format="pydantic">Pydantic</button>
             </div>
             <button class="btn" id="copyBtn">Copy</button>
+            <button class="btn secondary" id="shareBtn">Share</button>
             <button class="btn secondary" id="clearBtn">Clear</button>
         </div>
 
@@ -403,15 +404,75 @@ Example:
             });
         });
 
+        // Share button
+        document.getElementById('shareBtn').addEventListener('click', () => {
+            const input = jsonInput.value.trim();
+            if (!input) {
+                alert('Please enter some JSON first!');
+                return;
+            }
+            const url = new URL(window.location.href);
+            url.searchParams.set('json', encodeURIComponent(input));
+            url.searchParams.set('format', currentFormat);
+            navigator.clipboard.writeText(url.toString()).then(() => {
+                const btn = document.getElementById('shareBtn');
+                const originalText = btn.textContent;
+                btn.textContent = 'Link Copied!';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                }, 2000);
+            });
+        });
+
         // Clear button
         document.getElementById('clearBtn').addEventListener('click', () => {
             jsonInput.value = '';
             output.textContent = '// Paste JSON to generate types';
             errorMsg.innerHTML = '';
+            localStorage.removeItem('json-to-types-input');
         });
 
-        // Live conversion
-        jsonInput.addEventListener('input', convert);
+        // Live conversion with localStorage
+        jsonInput.addEventListener('input', () => {
+            convert();
+            localStorage.setItem('json-to-types-input', jsonInput.value);
+            localStorage.setItem('json-to-types-format', currentFormat);
+        });
+
+        // Load from localStorage on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedInput = localStorage.getItem('json-to-types-input');
+            const savedFormat = localStorage.getItem('json-to-types-format');
+            
+            if (savedInput && !window.location.search) {
+                jsonInput.value = savedInput;
+            }
+            if (savedFormat) {
+                currentFormat = savedFormat;
+                document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-format="${savedFormat}"]`)?.classList.add('active');
+            }
+            convert();
+        });
+
+        // URL sharing support
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('json')) {
+            try {
+                const decoded = decodeURIComponent(urlParams.get('json'));
+                jsonInput.value = decoded;
+            } catch (e) {
+                console.error('Failed to decode URL parameter');
+            }
+        }
+        if (urlParams.has('format')) {
+            const format = urlParams.get('format');
+            if (['ts-interface', 'ts-type', 'zod', 'py-typed', 'pydantic'].includes(format)) {
+                currentFormat = format;
+                document.querySelectorAll('.format-btn').forEach(b => b.classList.remove('active'));
+                document.querySelector(`[data-format="${format}"]`)?.classList.add('active');
+            }
+        }
 
         function convert() {
             const input = jsonInput.value.trim();
@@ -736,9 +797,11 @@ Example:
             return str.charAt(0).toLowerCase() + str.slice(1);
         }
 
-        // Initialize with first example
-        jsonInput.value = JSON.stringify(examples.user, null, 2);
-        convert();
+        // Initialize with first example only if no saved/URL data
+        if (!localStorage.getItem('json-to-types-input') && !urlParams.has('json')) {
+            jsonInput.value = JSON.stringify(examples.user, null, 2);
+            convert();
+        }
     </script>
 </body>
 </html>
