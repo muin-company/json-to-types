@@ -554,6 +554,439 @@ class Root(BaseModel):
 
 ---
 
+### Example 8: GraphQL API Response with Nullable Fields
+
+**Scenario:** GraphQL returns lots of nullable fields. You need TypeScript types that handle partial data correctly.
+
+**Input:**
+```json
+{
+  "data": {
+    "user": {
+      "id": "123",
+      "username": "john_doe",
+      "email": "john@example.com",
+      "profile": {
+        "bio": null,
+        "avatar": "https://cdn.example.com/avatars/123.jpg",
+        "website": null,
+        "location": "San Francisco, CA"
+      },
+      "stats": {
+        "followers": 1523,
+        "following": 342,
+        "posts": 89
+      }
+    }
+  },
+  "errors": null
+}
+```
+
+**TypeScript Interface (with proper nullability):**
+```typescript
+interface GraphQLResponse {
+  data: Data;
+  errors: null | Error[];
+}
+
+interface Data {
+  user: User;
+}
+
+interface User {
+  id: string;
+  username: string;
+  email: string;
+  profile: Profile;
+  stats: Stats;
+}
+
+interface Profile {
+  bio: string | null;       // Explicitly nullable
+  avatar: string;
+  website: string | null;   // Explicitly nullable
+  location: string;
+}
+
+interface Stats {
+  followers: number;
+  following: number;
+  posts: number;
+}
+
+// Type guard for safe access:
+function hasProfile(user: User): user is User & { profile: { bio: string } } {
+  return user.profile.bio !== null;
+}
+```
+
+**Zod Schema (runtime validation with nulls):**
+```typescript
+import { z } from 'zod';
+
+const statsSchema = z.object({
+  followers: z.number(),
+  following: z.number(),
+  posts: z.number(),
+});
+
+const profileSchema = z.object({
+  bio: z.string().nullable(),
+  avatar: z.string().url(),
+  website: z.string().url().nullable(),
+  location: z.string(),
+});
+
+const userSchema = z.object({
+  id: z.string(),
+  username: z.string(),
+  email: z.string().email(),
+  profile: profileSchema,
+  stats: statsSchema,
+});
+
+const graphQLResponseSchema = z.object({
+  data: z.object({
+    user: userSchema,
+  }),
+  errors: z.array(z.unknown()).nullable(),
+});
+
+type GraphQLResponse = z.infer<typeof graphQLResponseSchema>;
+
+// Usage:
+const response = graphQLResponseSchema.parse(apiResponse);
+// TypeScript knows response.data.user.profile.bio might be null
+```
+
+---
+
+### Example 9: Config File with Deeply Nested Optional Values
+
+**Scenario:** Application config JSON with many optional features. Need types that reflect the true structure.
+
+**Input:**
+```json
+{
+  "app": {
+    "name": "MyApp",
+    "version": "2.1.0",
+    "port": 3000,
+    "environment": "production"
+  },
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "name": "myapp_db",
+    "ssl": true,
+    "pool": {
+      "min": 2,
+      "max": 10,
+      "idleTimeout": 30000
+    }
+  },
+  "features": {
+    "authentication": {
+      "enabled": true,
+      "providers": ["google", "github"],
+      "sessionTimeout": 86400
+    },
+    "analytics": {
+      "enabled": false,
+      "provider": null,
+      "trackingId": null
+    },
+    "cache": {
+      "enabled": true,
+      "type": "redis",
+      "ttl": 3600,
+      "redis": {
+        "host": "localhost",
+        "port": 6379
+      }
+    }
+  }
+}
+```
+
+**TypeScript Type (for config validation):**
+```typescript
+type Config = {
+  app: AppConfig;
+  database: DatabaseConfig;
+  features: Features;
+}
+
+type AppConfig = {
+  name: string;
+  version: string;
+  port: number;
+  environment: 'development' | 'staging' | 'production';
+}
+
+type DatabaseConfig = {
+  host: string;
+  port: number;
+  name: string;
+  ssl: boolean;
+  pool: PoolConfig;
+}
+
+type PoolConfig = {
+  min: number;
+  max: number;
+  idleTimeout: number;
+}
+
+type Features = {
+  authentication: AuthConfig;
+  analytics: AnalyticsConfig;
+  cache: CacheConfig;
+}
+
+type AuthConfig = {
+  enabled: boolean;
+  providers: Array<'google' | 'github' | 'facebook'>;
+  sessionTimeout: number;
+}
+
+type AnalyticsConfig = {
+  enabled: boolean;
+  provider: string | null;
+  trackingId: string | null;
+}
+
+type CacheConfig = {
+  enabled: boolean;
+  type: 'redis' | 'memcached' | 'memory';
+  ttl: number;
+  redis?: RedisConfig;  // Optional, only if type === 'redis'
+}
+
+type RedisConfig = {
+  host: string;
+  port: number;
+}
+```
+
+**Python Pydantic (for backend config loading):**
+```python
+from pydantic import BaseModel, Field
+from typing import Optional, Literal, List
+
+class PoolConfig(BaseModel):
+    min: int = Field(ge=1)
+    max: int = Field(ge=1)
+    idleTimeout: int = Field(ge=0, alias='idleTimeout')
+
+class DatabaseConfig(BaseModel):
+    host: str
+    port: int = Field(ge=1, le=65535)
+    name: str
+    ssl: bool
+    pool: PoolConfig
+
+class AppConfig(BaseModel):
+    name: str
+    version: str
+    port: int = Field(ge=1, le=65535)
+    environment: Literal['development', 'staging', 'production']
+
+class AuthConfig(BaseModel):
+    enabled: bool
+    providers: List[Literal['google', 'github', 'facebook']]
+    sessionTimeout: int = Field(ge=0, alias='sessionTimeout')
+
+class AnalyticsConfig(BaseModel):
+    enabled: bool
+    provider: Optional[str]
+    trackingId: Optional[str] = Field(alias='trackingId')
+
+class RedisConfig(BaseModel):
+    host: str
+    port: int = Field(ge=1, le=65535)
+
+class CacheConfig(BaseModel):
+    enabled: bool
+    type: Literal['redis', 'memcached', 'memory']
+    ttl: int = Field(ge=0)
+    redis: Optional[RedisConfig]
+
+class Features(BaseModel):
+    authentication: AuthConfig
+    analytics: AnalyticsConfig
+    cache: CacheConfig
+
+class Config(BaseModel):
+    app: AppConfig
+    database: DatabaseConfig
+    features: Features
+
+# Usage:
+import json
+with open('config.json') as f:
+    config = Config(**json.load(f))
+# Pydantic validates all types and constraints!
+```
+
+---
+
+### Example 10: Webhook Payload with Discriminated Unions
+
+**Scenario:** Webhook receives different event types. Need to type them properly so TypeScript can narrow the type.
+
+**Input (multiple event types):**
+```json
+[
+  {
+    "event": "user.created",
+    "timestamp": "2025-02-06T10:30:00Z",
+    "data": {
+      "userId": 123,
+      "email": "new@example.com",
+      "plan": "free"
+    }
+  },
+  {
+    "event": "payment.succeeded",
+    "timestamp": "2025-02-06T10:35:00Z",
+    "data": {
+      "paymentId": "pi_abc123",
+      "amount": 1999,
+      "currency": "usd",
+      "customerId": 456
+    }
+  },
+  {
+    "event": "subscription.cancelled",
+    "timestamp": "2025-02-06T10:40:00Z",
+    "data": {
+      "subscriptionId": "sub_xyz789",
+      "cancelledAt": "2025-02-06T10:40:00Z",
+      "reason": "customer_request"
+    }
+  }
+]
+```
+
+**TypeScript Type (discriminated union):**
+```typescript
+// Base event type
+type BaseEvent = {
+  event: string;
+  timestamp: string;
+}
+
+// Specific event types
+type UserCreatedEvent = BaseEvent & {
+  event: 'user.created';
+  data: {
+    userId: number;
+    email: string;
+    plan: 'free' | 'pro' | 'enterprise';
+  };
+}
+
+type PaymentSucceededEvent = BaseEvent & {
+  event: 'payment.succeeded';
+  data: {
+    paymentId: string;
+    amount: number;
+    currency: string;
+    customerId: number;
+  };
+}
+
+type SubscriptionCancelledEvent = BaseEvent & {
+  event: 'subscription.cancelled';
+  data: {
+    subscriptionId: string;
+    cancelledAt: string;
+    reason: 'customer_request' | 'payment_failed' | 'fraud';
+  };
+}
+
+// Union type for all events
+type WebhookEvent = UserCreatedEvent | PaymentSucceededEvent | SubscriptionCancelledEvent;
+
+// Type-safe event handler with narrowing
+function handleWebhook(event: WebhookEvent) {
+  switch (event.event) {
+    case 'user.created':
+      // TypeScript knows event.data has userId, email, plan
+      console.log(`New user: ${event.data.email}`);
+      break;
+    case 'payment.succeeded':
+      // TypeScript knows event.data has paymentId, amount, etc.
+      console.log(`Payment: $${event.data.amount / 100}`);
+      break;
+    case 'subscription.cancelled':
+      // TypeScript knows event.data has subscriptionId, cancelledAt, reason
+      console.log(`Cancelled: ${event.data.reason}`);
+      break;
+  }
+}
+```
+
+**Zod Schema (webhook validation with discrimination):**
+```typescript
+import { z } from 'zod';
+
+const userCreatedSchema = z.object({
+  event: z.literal('user.created'),
+  timestamp: z.string().datetime(),
+  data: z.object({
+    userId: z.number(),
+    email: z.string().email(),
+    plan: z.enum(['free', 'pro', 'enterprise']),
+  }),
+});
+
+const paymentSucceededSchema = z.object({
+  event: z.literal('payment.succeeded'),
+  timestamp: z.string().datetime(),
+  data: z.object({
+    paymentId: z.string(),
+    amount: z.number().positive(),
+    currency: z.string().length(3),
+    customerId: z.number(),
+  }),
+});
+
+const subscriptionCancelledSchema = z.object({
+  event: z.literal('subscription.cancelled'),
+  timestamp: z.string().datetime(),
+  data: z.object({
+    subscriptionId: z.string(),
+    cancelledAt: z.string().datetime(),
+    reason: z.enum(['customer_request', 'payment_failed', 'fraud']),
+  }),
+});
+
+const webhookEventSchema = z.discriminatedUnion('event', [
+  userCreatedSchema,
+  paymentSucceededSchema,
+  subscriptionCancelledSchema,
+]);
+
+type WebhookEvent = z.infer<typeof webhookEventSchema>;
+
+// Usage in webhook endpoint:
+app.post('/webhooks', (req, res) => {
+  try {
+    const event = webhookEventSchema.parse(req.body);
+    // Type-safe handling with full validation
+    handleWebhook(event);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(400).json({ error: 'Invalid webhook payload' });
+  }
+});
+```
+
+---
+
 ## Use Cases
 
 - **API integration** - Type API responses instantly
