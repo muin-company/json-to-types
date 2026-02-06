@@ -277,6 +277,7 @@
                 <button class="format-btn" data-format="pydantic">Pydantic</button>
             </div>
             <button class="btn" id="copyBtn">Copy</button>
+            <button class="btn" id="downloadBtn">Download</button>
             <button class="btn secondary" id="shareBtn">Share</button>
             <button class="btn secondary" id="clearBtn">Clear</button>
         </div>
@@ -456,6 +457,61 @@ Example:
                     btn.textContent = originalText;
                 }, 2000);
             });
+        });
+
+        // Download button
+        document.getElementById('downloadBtn').addEventListener('click', () => {
+            const text = output.textContent;
+            if (text === '// Paste JSON to generate types' || text === '// Fix JSON errors to generate types') {
+                alert('Please generate some types first!');
+                return;
+            }
+            
+            // Determine file extension and name based on format
+            let extension = '.ts';
+            let filename = 'types';
+            
+            switch (currentFormat) {
+                case 'ts-interface':
+                    extension = '.ts';
+                    filename = 'types';
+                    break;
+                case 'ts-type':
+                    extension = '.ts';
+                    filename = 'types';
+                    break;
+                case 'zod':
+                    extension = '.ts';
+                    filename = 'schema';
+                    break;
+                case 'py-typed':
+                    extension = '.py';
+                    filename = 'types';
+                    break;
+                case 'pydantic':
+                    extension = '.py';
+                    filename = 'models';
+                    break;
+            }
+            
+            // Create blob and download
+            const blob = new Blob([text], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename + extension;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            // Show feedback
+            const btn = document.getElementById('downloadBtn');
+            const originalText = btn.textContent;
+            btn.textContent = 'Downloaded!';
+            setTimeout(() => {
+                btn.textContent = originalText;
+            }, 2000);
         });
 
         // Share button
